@@ -1,0 +1,107 @@
+# esp32_motor_hardware_interface
+
+A ros2_control hardware interface (ROS 2 Humble) for two DC motors driven by an ESP32. The
+ESP32 drives both channels of an L298N and reads a quadrature encoder on each motor. It talks
+to a Jetson over the UART on the 40-pin header.
+
+```
+ros2_control (Jetson)                         ESP32
+  velocity_controller ──► Esp32System ──UART──► PI speed loops ──► L298N ──► motor 1, motor 2
+  joint_state_broadcaster ◄───────────────────── encoders ◄─────────────────┘
+```
+
+The joints are `motor_1_joint` (L298N channel A) and `motor_2_joint` (channel B). The ROS side
+handles however many joints the URDF lists; the firmware is set up for two (`MOTOR_COUNT`).
+
+## Wiring
+
+| From                     | To                          |
+|--------------------------|-----------------------------|
+| Jetson pin 8 (UART TX)   | ESP32 GPIO16 (RX2)          |
+| Jetson pin 10 (UART RX)  | ESP32 GPIO17 (TX2)          |
+| Jetson pin 6 (GND)       | ESP32 GND                   |
+| ESP32 GND                | L298N GND (common ground)   |
+
+| Signal        | Motor 1               | Motor 2               |
+|---------------|-----------------------|-----------------------|
+| L298N enable  | GPIO25 → ENA          | GPIO4 → ENB           |
+| L298N inputs  | GPIO26 / 27 → IN1/IN2 | GPIO18 / 19 → IN3/IN4 |
+| Encoder A / B | GPIO32 / 33           | GPIO22 / 23           |
+
+Remove both ENA and ENB jumpers on the L298N. Pins are set in the `motors[]` table at the top
+of the firmware.
+
+> **3.3 V only.** ESP32 pins are not 5 V tolerant. Power the encoder from 3.3 V, or put a
+> level shifter or divider on A/B if it has to run at 5 V. The Jetson header UART is 3.3 V,
+> so it connects to the ESP32 directly.
+
+## Protocol
+
+115200 baud, 8N1, one line in and one line out:
+
+| Jetson → ESP32 | ESP32 → Jetson          |
+|----------------|-------------------------|
+| `V <v1> <v2>`  | `S <p1> <v1> <p2> <v2>` |
+| anything else  | `ERR <message>`         |
+
+Velocities are in rad/s and positions in rad, in joint order. The ESP32 stops both motors if it
+gets no command for 500 ms.
+
+## Firmware
+
+Flash `firmware/esp32_motor/esp32_motor.ino` with Arduino IDE or `arduino-cli` (Arduino-ESP32
+core 3.x). Before flashing, fill in each motor's row in the `motors[]` table:
+
+- counts/rev: encoder pulses per motor rev × 4 × gear ratio
+- inverted: flip it if a positive command reads back as negative velocity
+- max rad/s: output shaft speed at full duty
+
+## Jetson setup
+
+```bash
+# Let your user open the UART
+sudo usermod -aG dialout $USER        # then log out and back in
+
+# On Jetson Nano the header UART runs a serial console; turn it off
+sudo systemctl stop nvgetty && sudo systemctl disable nvgetty
+```
+
+The header UART is `/dev/ttyTHS1` on Jetson Nano and Xavier. Some Orin images use
+`/dev/ttyTHS0`. Pass `device:=...` if yours is different.
+
+## Build and run
+
+```bash
+mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
+git clone <this repo> esp32_motor_hardware_interface
+cd ~/ros2_ws
+rosdep install --from-paths src --ignore-src -y
+colcon build --packages-select esp32_motor_hardware_interface
+source install/setup.bash
+
+ros2 launch esp32_motor_hardware_interface motor.launch.py            # device:=/dev/ttyTHS0
+```
+
+In another terminal:
+
+```bash
+# Motor 1 at 5 rad/s, motor 2 at -3 rad/s (one value per joint, in order)
+ros2 topic pub --once /velocity_controller/commands std_msgs/msg/Float64MultiArray "data: [5.0, -3.0]"
+
+# Watch positions / velocities
+ros2 topic echo /joint_states
+
+# Stop both
+ros2 topic pub --once /velocity_controller/commands std_msgs/msg/Float64MultiArray "data: [0.0, 0.0]"
+```
+
+The controller ignores messages that don't have exactly one value per joint.
+
+## Troubleshooting
+
+- **`Could not open /dev/ttyTHS1`**: wrong device, or your user isn't in `dialout`.
+- **`ESP32 ... did not answer`**: TX/RX swapped, no common GND, firmware not flashed, or
+  `nvgetty` still holds the port.
+- **A motor runs away or oscillates**: check that motor's `inverted` flag first, then lower
+  `KP` / `KI`.
+- **The wrong motor moves**: swap the two rows in the firmware's `motors[]` table.

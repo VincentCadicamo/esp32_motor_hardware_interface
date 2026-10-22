@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="esp32_motor">
+
+  <!-- UART on the Jetson 40-pin header (pins 8 TX / 10 RX). Override with device:=... -->
+  <xacro:arg name="device" default="/dev/ttyTHS1"/>
+  <xacro:arg name="baud_rate" default="115200"/>
+
+  <xacro:macro name="motor" params="name y">
+    <link name="${name}_link">
+      <visual>
+        <geometry>
+          <cylinder radius="0.03" length="0.01"/>
+        </geometry>
+      </visual>
+    </link>
+
+    <joint name="${name}_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${name}_link"/>
+      <origin xyz="0 ${y} 0" rpy="-1.5708 0 0"/>
+      <axis xyz="0 0 1"/>
+    </joint>
+  </xacro:macro>
+
+  <link name="base_link"/>
+
+  <xacro:motor name="motor_1" y="0.1"/>
+  <xacro:motor name="motor_2" y="-0.1"/>
+
+  <ros2_control name="Esp32Motor" type="system">
+    <hardware>
+      <plugin>esp32_motor_hardware_interface/Esp32System</plugin>
+      <param name="device">$(arg device)</param>
+      <param name="baud_rate">$(arg baud_rate)</param>
+      <param name="timeout_ms">20</param>
+      <param name="max_missed_replies">5</param>
+    </hardware>
+    <!-- Order here = order in the serial protocol (motor 1 = L298N channel A) -->
+    <joint name="motor_1_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="motor_2_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+
+</robot>

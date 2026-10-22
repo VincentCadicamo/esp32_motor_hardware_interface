@@ -1,0 +1,9 @@
+<library path="esp32_motor_hardware_interface">
+  <class name="esp32_motor_hardware_interface/Esp32System"
+         type="vc::esp32_motor_hardware_interface::Esp32System"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>
+      ros2_control hardware interface for one motor driven by an ESP32 over UART.
+    </description>
+  </class>
+</library>
