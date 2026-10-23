@@ -11,6 +11,7 @@
 
   <depend>hardware_interface</depend>
   <depend>pluginlib</depend>
+  <depend>rcl_interfaces</depend>
   <depend>rclcpp</depend>
   <depend>rclcpp_lifecycle</depend>
 
@@ -20,6 +21,8 @@
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>xacro</exec_depend>
   <exec_depend>ros2launch</exec_depend>
+  <exec_depend>rqt_reconfigure</exec_depend>
+  <exec_depend>rqt_plot</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

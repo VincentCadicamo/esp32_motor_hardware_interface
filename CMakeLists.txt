@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(THIS_PACKAGE_DEPENDS
   hardware_interface
   pluginlib
+  rcl_interfaces
   rclcpp
   rclcpp_lifecycle
 )

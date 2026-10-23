@@ -34,6 +34,11 @@
       <param name="baud_rate">$(arg baud_rate)</param>
       <param name="timeout_ms">20</param>
       <param name="max_missed_replies">5</param>
+      <!-- PID gains sent to the ESP32 at startup. Tune live with rqt_reconfigure
+           (node esp32_motor_pid), then copy the values you like here. -->
+      <param name="kp">0.04</param>
+      <param name="ki">0.10</param>
+      <param name="kd">0.0</param>
     </hardware>
     <!-- Order here = order in the serial protocol (motor 1 = L298N channel A) -->
     <joint name="motor_1_joint">
